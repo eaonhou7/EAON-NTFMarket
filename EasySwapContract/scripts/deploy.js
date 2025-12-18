@@ -13,30 +13,24 @@ async function main() {
   const [deployer] = await ethers.getSigners()
   console.log("deployer: ", deployer.address)
 
-  // let esVault = await ethers.getContractFactory("EasySwapVault")
-  // esVault = await upgrades.deployProxy(esVault, { initializer: 'initialize' });
-  // await esVault.deployed()
-  // console.log("esVault contract deployed to:", esVault.address)
-  // console.log(await upgrades.erc1967.getImplementationAddress(esVault.address), " esVault getImplementationAddress")
-  // console.log(await upgrades.erc1967.getAdminAddress(esVault.address), " esVault getAdminAddress")
+  let esVaultFactory = await ethers.getContractFactory("EasySwapVault")
+  const esVault = await upgrades.deployProxy(esVaultFactory, { initializer: 'initialize' });
+  await esVault.deployed()
+  console.log("esVault contract deployed to:", esVault.address)
+  console.log(await upgrades.erc1967.getImplementationAddress(esVault.address), " esVault getImplementationAddress")
+  console.log(await upgrades.erc1967.getAdminAddress(esVault.address), " esVault getAdminAddress")
 
-  // newProtocolShare = 200;
-  // newESVault = "0xaD65f3dEac0Fa9Af4eeDC96E95574AEaba6A2834";
-  // EIP712Name = "EasySwapOrderBook";
-  // EIP712Version = "1";
-  // let esDex = await ethers.getContractFactory("EasySwapOrderBook")
-  // esDex = await upgrades.deployProxy(esDex, [newProtocolShare, newESVault, EIP712Name, EIP712Version], { initializer: 'initialize' });
-  // await esDex.deployed()
-  // console.log("esDex contract deployed to:", esDex.address)
-  // console.log(await upgrades.erc1967.getImplementationAddress(esDex.address), " esDex getImplementationAddress")
-  // console.log(await upgrades.erc1967.getAdminAddress(esDex.address), " esDex getAdminAddress")
+  const newProtocolShare = 200;
+  const EIP712Name = "EasySwapOrderBook";
+  const EIP712Version = "1";
+  let esDexFactory = await ethers.getContractFactory("EasySwapOrderBook")
+  const esDex = await upgrades.deployProxy(esDexFactory, [newProtocolShare, esVault.address, EIP712Name, EIP712Version], { initializer: 'initialize' });
+  await esDex.deployed()
+  console.log("esDex contract deployed to:", esDex.address)
+  console.log(await upgrades.erc1967.getImplementationAddress(esDex.address), " esDex getImplementationAddress")
+  console.log(await upgrades.erc1967.getAdminAddress(esDex.address), " esDex getAdminAddress")
 
-  esDexAddress = "0xcEE5AA84032D4a53a0F9d2c33F36701c3eAD5895"
-  esVaultAddress = "0xaD65f3dEac0Fa9Af4eeDC96E95574AEaba6A2834"
-  const esVault = await (
-    await ethers.getContractFactory("EasySwapVault")
-  ).attach(esVaultAddress)
-  tx = await esVault.setOrderBook(esDexAddress)
+  tx = await esVault.setOrderBook(esDex.address)
   await tx.wait()
   console.log("esVault setOrderBook tx:", tx.hash)
 }

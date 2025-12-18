@@ -238,11 +238,20 @@ npx hardhat test
 deploy to sepolia testnet
 ```shell
 npx hardhat run --network sepolia scripts/deploy.js
+
+deployer:  0x4572eCD8afa394f7B048BE5b0e993931dc08948d
+esVault contract deployed to: 0x44Ec3f1E3f533140Bc769b4201e0713162227683
+0x2592fe98a9480E2578D9db78EAa984E607EeAe2d  esVault getImplementationAddress
+0x3B7F59e1d9A1587be7be93123EcC8393AcA8227B  esVault getAdminAddress
 ```
 
 deploy test erc721 
 ```shell
 npx hardhat run --network sepolia scripts/deploy_721.js
+
+deployer:  0x4572eCD8afa394f7B048BE5b0e993931dc08948d
+testERC721 contract deployed to: 0x0E84881515781065D7F96Eb3acEE74D3396d6757
+mint tx: 0x2bba01e4bd4ccd10a809278d634c92a51984b6a9322c6a5e2e8944ee41bf4e34
 ```
 
 ## Advanced
