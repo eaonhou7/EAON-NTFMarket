@@ -37,8 +37,10 @@ func RecoverMiddleware() gin.HandlerFunc {
 }
 
 // dumpRequest 格式化请求样式
+// 用于在 panic 时记录完整的 HTTP 请求详情 (Method, URI, Headers, Body)
 func dumpRequest(req *http.Request) string {
 	var dup io.ReadCloser
+	// 复制 Body 以便读取后还能被后续处理 (虽然这里已经是 panic 处理流程)
 	req.Body, dup = dupReadCloser(req.Body)
 
 	var b bytes.Buffer

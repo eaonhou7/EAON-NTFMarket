@@ -55,21 +55,22 @@ func GetOrderInfos(ctx context.Context, svcCtx *svc.ServerCtx, chainID int, chai
 // processBids 处理NFT的出价信息,返回每个NFT的最高出价
 // 参数说明:
 // - tokenIds: NFT的token ID列表
-// - itemsBestBids: 每个NFT的最高出价信息,key为tokenId
-// - collectionBids: 整个Collection的最高出价列表
+// - itemsBestBids: 每个NFT的"单品"最高出价信息,key为tokenId (Specific Item Offer)
+// - collectionBids: 整个"Collection"的最高出价列表 (Collection Offer)
 // - collectionAddr: Collection地址
 //
-// 处理逻辑:
-// 1. 将itemsBestBids按价格升序排序
-// 2. 遍历tokenIds,对每个tokenId:
-//   - 如果该tokenId没有单独的出价信息,使用Collection级别的出价(如果有)
-//   - 如果该tokenId有单独的出价信息:
-//   - 如果Collection级别没有更高的出价,使用该NFT的出价
-//   - 如果Collection级别有更高的出价,使用Collection的出价
+// 处理逻辑 (撮合算法):
+// 1. 将 单品出价 (itemsBestBids) 按价格升序排序
+// 2. 遍历目标 tokenIds 列表:
+//   - 情况A (无单品出价): 如果该 Token 没有指定出价，尝试匹配当前可用的最高 Collection Offer。
+//   - 情况B (有单品出价):
+//   - 比较 单品出价(ItemPrice) vs 集合出价(CollectionPrice)
+//   - 优先展示价格更高者 (Price Discovery)
+//   - 若使用集合出价，则消耗该集合出价额度 (cBidIndex++)
 //
-// 3. 返回每个NFT的最终出价信息
+// 3. 返回每个 Token 最终使用的有效出价(ItemBid)列表
 func processBids(tokenIds []string, itemsBestBids map[string]multi.Order, collectionBids []multi.Order, collectionAddr string) []types.ItemBid {
-	// 将itemsBestBids转换为切片并按价格升序排序
+	// 将 itemsBestBids map 转换为切片并按价格升序排序
 	var itemsSortedBids []multi.Order
 	for _, bid := range itemsBestBids {
 		itemsSortedBids = append(itemsSortedBids, bid)
@@ -79,12 +80,12 @@ func processBids(tokenIds []string, itemsBestBids map[string]multi.Order, collec
 	})
 
 	var resultBids []types.ItemBid
-	var cBidIndex int // Collection级别出价的索引
+	var cBidIndex int // Collection级别出价的遍历索引
 
-	// 处理没有单独出价的NFT
+	// 第一阶段：处理没有单独出价的NFT (优先消耗 Collection Offers)
 	for _, tokenId := range tokenIds {
 		if _, ok := itemsBestBids[tokenId]; !ok {
-			// 如果有Collection级别的出价,使用Collection的出价
+			// 如果有剩余的 Collection 级别出价, 使用它
 			if cBidIndex < len(collectionBids) {
 				resultBids = append(resultBids, types.ItemBid{
 					MarketplaceId:     collectionBids[cBidIndex].MarketplaceId,
@@ -100,15 +101,16 @@ func processBids(tokenIds []string, itemsBestBids map[string]multi.Order, collec
 					Bidder:            collectionBids[cBidIndex].Maker,
 					OrderType:         getBidType(collectionBids[cBidIndex].OrderType),
 				})
-				cBidIndex++
+				cBidIndex++ // 消耗一个集合出价
 			}
 		}
 	}
 
-	// 处理有单独出价的NFT
+	// 第二阶段：处理有单独出价的NFT (比较 Item Offer vs Collection Offer)
 	for _, itemBid := range itemsSortedBids {
 		if cBidIndex >= len(collectionBids) {
-			// 如果没有更多Collection级别的出价,使用NFT自己的出价
+			// case 1: 如果没有更多 Collection 级别的出价 (Collection Offers 耗尽)
+			// 直接使用 NFT 自己的单品出价
 			resultBids = append(resultBids, types.ItemBid{
 				MarketplaceId:     itemBid.MarketplaceId,
 				CollectionAddress: collectionAddr,
@@ -124,10 +126,13 @@ func processBids(tokenIds []string, itemsBestBids map[string]multi.Order, collec
 				OrderType:         getBidType(itemBid.OrderType),
 			})
 		} else {
-			// 比较Collection级别的出价和NFT自己的出价
+			// case 2: 还有 Collection Offer，需要比较 Item Offer 和 Collection Offer 的价格
 			cBid := collectionBids[cBidIndex]
+
 			if cBid.Price.GreaterThan(itemBid.Price) {
-				// 如果Collection的出价更高,使用Collection的出价
+				// [Price Logic] 如果 Collection 的出价更高
+				// 优先展示 Collection 出价 (对卖家有利)
+				// 并消耗一个 Collection Offer 配额
 				resultBids = append(resultBids, types.ItemBid{
 					MarketplaceId:     cBid.MarketplaceId,
 					CollectionAddress: collectionAddr,
@@ -142,9 +147,10 @@ func processBids(tokenIds []string, itemsBestBids map[string]multi.Order, collec
 					Bidder:            cBid.Maker,
 					OrderType:         getBidType(cBid.OrderType),
 				})
-				cBidIndex++
+				cBidIndex++ // 消耗该集合出价
 			} else {
-				// 如果NFT自己的出价更高,使用NFT的出价
+				// [Price Logic] 如果 NFT 自己的出价更高
+				// 使用 NFT 的单品出价, 不消耗 Collection Offer (留给其他没有更高单品出价的 Item)
 				resultBids = append(resultBids, types.ItemBid{
 					MarketplaceId:     itemBid.MarketplaceId,
 					CollectionAddress: collectionAddr,

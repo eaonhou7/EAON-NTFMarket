@@ -9,6 +9,8 @@ import (
 	"github.com/ProjectsTask/EasySwapBackend/src/types/v1"
 )
 
+// GetItemBidsInfo 获取 Item 的历史出价信息
+// 功能: 分页查询针对该 Item 的所有 Bid 记录
 func GetItemBidsInfo(ctx context.Context, svcCtx *svc.ServerCtx, chain string, collectionAddr, tokenID string, page, pageSize int) (*types.CollectionBidsResp, error) {
 	bids, count, err := svcCtx.Dao.QueryItemBids(ctx, chain, collectionAddr, tokenID, page, pageSize)
 	if err != nil {

@@ -68,6 +68,8 @@ func AuthMiddleWare(ctx *xkv.Store) gin.HandlerFunc {
 	}
 }
 
+// GetAuthUserAddress 从请求头 Session ID 获取认证用户地址
+// 支持批量解析，返回地址列表
 func GetAuthUserAddress(c *gin.Context, ctx *xkv.Store) ([]string, error) {
 	values := c.Request.Header.Get("session_id")
 	if values == "" {
@@ -77,21 +79,24 @@ func GetAuthUserAddress(c *gin.Context, ctx *xkv.Store) ([]string, error) {
 	sessionIDs := strings.Split(values, ",")
 	var addrs []string
 	for _, sessionID := range sessionIDs {
+		// 1. Hex 解码
 		encryptCode, err := hex.DecodeString(sessionID)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed on decode cookie")
 		}
 
-		//解密
+		// 2. AES 解密
 		decrptCode, err := AesDecryptOFB(encryptCode, []byte(CR_LOGIN_SALT))
 		if err != nil {
 			return nil, errors.Wrap(err, "invalid cookie")
 		}
-		//从redis里取数据
+		// 3. 验证 Redis 缓存存在性
+		// 从redis里取数据
 		result, err := ctx.Get(string(decrptCode))
 		if result == "" || err != nil {
 			return nil, errors.Wrap(err, "failed on read cookie from cache")
 		}
+		// 4. 解析缓存 Key 获取地址 [KeyPrefix]:[Address]
 		arr := strings.Split(string(decrptCode), CR_LOGIN_KEY+":")
 		if len(arr) != 2 {
 			return nil, errors.New("user cache info format err")

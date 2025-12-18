@@ -12,5 +12,6 @@ genm.json
 genm_bak.json
 tmp
 config/config.toml
+src/config/config.toml
 cli/logs
 .history

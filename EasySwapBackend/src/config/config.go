@@ -10,16 +10,16 @@ import (
 	"github.com/spf13/viper"
 )
 
+// Config 全局配置结构体
 type Config struct {
-	Api        `toml:"api" json:"api"`
-	ProjectCfg *ProjectCfg     `toml:"project_cfg" mapstructure:"project_cfg" json:"project_cfg"`
-	Log        logging.LogConf `toml:"log" json:"log"`
-	//ImageCfg       *image.Config     `toml:"image_cfg" mapstructure:"image_cfg" json:"image_cfg"`
-	DB             gdb.Config        `toml:"db" json:"db"`
-	Kv             *KvConf           `toml:"kv" json:"kv"`
-	Evm            *erc.NftErc       `toml:"evm" json:"evm"`
-	MetadataParse  *MetadataParse    `toml:"metadata_parse" mapstructure:"metadata_parse" json:"metadata_parse"`
-	ChainSupported []*ChainSupported `toml:"chain_supported" mapstructure:"chain_supported" json:"chain_supported"`
+	Api            `toml:"api" json:"api"`
+	ProjectCfg     *ProjectCfg       `toml:"project_cfg" mapstructure:"project_cfg" json:"project_cfg"`             // 项目配置(如名称)
+	Log            logging.LogConf   `toml:"log" json:"log"`                                                        // 日志配置
+	DB             gdb.Config        `toml:"db" json:"db"`                                                          // 数据库配置
+	Kv             *KvConf           `toml:"kv" json:"kv"`                                                          // KV存储配置(Redis)
+	Evm            *erc.NftErc       `toml:"evm" json:"evm"`                                                        // EVM 节点配置
+	MetadataParse  *MetadataParse    `toml:"metadata_parse" mapstructure:"metadata_parse" json:"metadata_parse"`    // 元数据解析规则
+	ChainSupported []*ChainSupported `toml:"chain_supported" mapstructure:"chain_supported" json:"chain_supported"` // 支持的链列表
 }
 
 type ProjectCfg struct {

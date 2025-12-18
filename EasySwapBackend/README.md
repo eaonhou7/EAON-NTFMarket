@@ -28,8 +28,7 @@ replace github.com/ProjectsTask/EasySwapBase => ../EasySwapBase
 6. 运行以下指令，如果你是 goland ide 你可以直接到 src/main.go 上面点击启动
    
 ```shell
-cd src
-go run main.go
+go run src/main.go
 ```
 如图：恭喜你后端 的api 服务运行成功了！
 ![img.png](img.png)

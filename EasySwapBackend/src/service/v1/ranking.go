@@ -21,14 +21,17 @@ const MinuteSeconds = 60
 const HourSeconds = 60 * 60
 const DaySeconds = 3600 * 24
 
-// GetTopRanking 获取指定链上的NFT集合排名信息
-// @param ctx context.Context 上下文
-// @param svcCtx *svc.ServerCtx 服务上下文
-// @param chain string 链名称
-// @param period string 时间范围(15m/1h/6h/1d/7d/30d)
-// @param limit int64 返回结果数量限制
-// @return []*types.CollectionRankingInfo 返回集合排名信息列表
-// @return error 错误信息
+// GetTopRanking 获取指定链上的 NFT 集合排名信息
+// 功能:
+// 1. 统计指定时间窗口 (period) 内的交易量、销量
+// 2. 计算地板价涨跌幅 (Floor Change)
+// 3. 关联查询集合基本信息 (FloorPrice, OwnerNum, ItemNum, etc.)
+// 4. 支持按交易量降序返回 Top N 集合
+//
+// 参数:
+// - chain: 链名称 (e.g. "eth", "polygon")
+// - period: 时间范围 (15m, 1h, 6h, 1d, 7d, 30d)
+// - limit: 返回数量限制
 func GetTopRanking(ctx context.Context, svcCtx *svc.ServerCtx, chain string, period string, limit int64) ([]*types.CollectionRankingInfo, error) {
 	// 获取集合交易信息
 	tradeInfos, err := svcCtx.Dao.GetCollectionRankingByActivity(chain, period)

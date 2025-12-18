@@ -90,11 +90,12 @@ func CacheApi(store *xkv.Store, expireSeconds int) gin.HandlerFunc {
 
 // CreateKey 生成缓存的key
 // 主要功能:
-// 1. 将路径、查询参数和请求体组合成缓存key
+// 1. 将路径、查询参数和请求体组合成缓存key (Path + Query + Body)
 // 2. 如果key长度超过128,使用SHA512进行哈希
 // 3. 添加缓存前缀并返回最终的key
 func CreateKey(c *gin.Context) string {
 	var buf bytes.Buffer
+	// 使用 TeeReader 复制 Request Body，避免读取后 Body 为空
 	tee := io.TeeReader(c.Request.Body, &buf)
 	requestBody, _ := ioutil.ReadAll(tee)
 	c.Request.Body = ioutil.NopCloser(&buf)

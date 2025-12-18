@@ -65,7 +65,7 @@ func RLog() gin.HandlerFunc {
 			}
 		} else {
 			// 计算处理时间
-			latency := float64(time.Now().Sub(start).Nanoseconds() / 1000000.0)
+			latency := float64(time.Since(start).Nanoseconds() / 1000000.0)
 			// 记录请求和响应的详细信息
 			fields := []zapcore.Field{
 				zap.Int("status", c.Writer.Status()),

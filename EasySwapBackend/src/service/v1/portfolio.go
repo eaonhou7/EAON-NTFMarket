@@ -26,7 +26,12 @@ func getBidType(origin int64) int64 {
 	}
 }
 
-// GetMultiChainUserCollections 获取用户拥有Collection信息： 拥有item数量、上架数量、floor price
+// GetMultiChainUserCollections 获取用户在多链上拥有的 Collection 信息
+// 功能:
+// 1. 查询用户在所有支持链上持有的 Collection 列表
+// 2. 统计每个 Collection 的持有数量 (ItemOwned)
+// 3. 计算用户持仓总价值 (根据 FloorPrice 估算)
+// 4. 并发查询每个 Collection 的挂单数量
 func GetMultiChainUserCollections(ctx context.Context, svcCtx *svc.ServerCtx, chainIDs []int, chainNames []string, userAddrs []string) (*types.UserCollectionsResp, error) {
 	// 1. 查询用户在多条链上的Collection基本信息
 	collections, err := svcCtx.Dao.QueryMultiChainUserCollectionInfos(ctx, chainIDs, chainNames, userAddrs)
@@ -119,9 +124,19 @@ func GetMultiChainUserCollections(ctx context.Context, svcCtx *svc.ServerCtx, ch
 	}, nil
 }
 
-// GetMultiChainUserItems 查询用户拥有nft的Item基本信息，list信息和bid信息，从Item表和Activity表中查询
+// GetMultiChainUserItems 查询用户拥有的 NFT Item 详细信息
+// 功能:
+// 1. 分页查询用户在多链上的 NFT 资产
+// 2. 并发关联查询:
+//   - Collection 信息 (Name, Image)
+//   - Collection 级别的最佳 Bid
+//   - Item 级别的最佳 Bid
+//   - Item 的挂单信息 (Listing Info)
+//   - Item 的图片/视频资源
+//
+// 3. 智能计算最佳 Bid (比较 Item Bid 和 Collection Bid)
 func GetMultiChainUserItems(ctx context.Context, svcCtx *svc.ServerCtx, chainID []int, chain []string, userAddrs []string, contractAddrs []string, page, pageSize int) (*types.UserItemsResp, error) {
-	// 1.
+	// 1. 查询用户持有的 Item 基本信息
 	items, count, err := svcCtx.Dao.QueryMultiChainUserItemInfos(ctx, chain, userAddrs, contractAddrs, page, pageSize)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed on get user items info")
@@ -201,7 +216,7 @@ func GetMultiChainUserItems(ctx context.Context, svcCtx *svc.ServerCtx, chainID 
 		return nil, errors.Wrap(err, "failed on query collection bids")
 	}
 
-	// 6. 并发查询Item最高出价信息
+	// 5.2 [并发任务 2] 查询 Item 级别的最佳出价 (Item Highest Bid)
 	itemsBestBids := make(map[dao.MultiChainItemInfo]multi.Order)
 	for chain, items := range multichainItems {
 		wg.Add(1)
@@ -216,13 +231,15 @@ func GetMultiChainUserItems(ctx context.Context, svcCtx *svc.ServerCtx, chainID 
 			mu.Lock()
 			defer mu.Unlock()
 			for _, bid := range bids {
-				order, ok := itemsBestBids[dao.MultiChainItemInfo{ItemInfo: types.ItemInfo{CollectionAddress: strings.ToLower(bid.CollectionAddress), TokenID: bid.TokenId}, ChainName: chainName}]
+				// (Fix S1005: removed unnecessary assignment to blank identifier)
+				key := dao.MultiChainItemInfo{ItemInfo: types.ItemInfo{CollectionAddress: strings.ToLower(bid.CollectionAddress), TokenID: bid.TokenId}, ChainName: chainName}
+				order, ok := itemsBestBids[key]
 				if !ok {
-					itemsBestBids[dao.MultiChainItemInfo{ItemInfo: types.ItemInfo{CollectionAddress: strings.ToLower(bid.CollectionAddress), TokenID: bid.TokenId}, ChainName: chainName}] = bid
+					itemsBestBids[key] = bid
 					continue
 				}
 				if bid.Price.GreaterThan(order.Price) {
-					itemsBestBids[dao.MultiChainItemInfo{ItemInfo: types.ItemInfo{CollectionAddress: strings.ToLower(bid.CollectionAddress), TokenID: bid.TokenId}, ChainName: chainName}] = bid
+					itemsBestBids[key] = bid
 				}
 			}
 		}(chain, items)
@@ -377,7 +394,11 @@ func GetMultiChainUserItems(ctx context.Context, svcCtx *svc.ServerCtx, chainID 
 	}, nil
 }
 
-// GetMultiChainUserListings 获取用户在多条链上的挂单信息
+// GetMultiChainUserListings 获取用户在多条链上的挂单 (Listing) 信息
+// 功能:
+// 1. 查询用户当前正在出售的 NFT 列表
+// 2. 关联查询 Collection 信息、最佳 Bid 信息、图片信息
+// 3. 计算最近成本 (Last Cost)
 func GetMultiChainUserListings(ctx context.Context, svcCtx *svc.ServerCtx, chainID []int, chain []string, userAddrs []string, contractAddrs []string, page, pageSize int) (*types.UserListingsResp, error) {
 	var result []types.Listing
 	// 1. 查询用户挂单Item基本信息
@@ -431,7 +452,7 @@ func GetMultiChainUserListings(ctx context.Context, svcCtx *svc.ServerCtx, chain
 		})
 	}
 
-	// 5. 记录Item最近成本
+	// 5. 记录Item最近成本 (todo: implement logic)
 	itemLastCost := make(map[dao.MultiChainItemInfo]decimal.Decimal)
 
 	// 6. 并发查询Collection最高出价信息
@@ -478,13 +499,15 @@ func GetMultiChainUserListings(ctx context.Context, svcCtx *svc.ServerCtx, chain
 			mu.Lock()
 			defer mu.Unlock()
 			for _, bid := range bids {
-				order, ok := itemsBestBids[dao.MultiChainItemInfo{ItemInfo: types.ItemInfo{CollectionAddress: strings.ToLower(bid.CollectionAddress), TokenID: bid.TokenId}, ChainName: chainName}]
+				// (Fix S1005: assignment to blank identifier)
+				key := dao.MultiChainItemInfo{ItemInfo: types.ItemInfo{CollectionAddress: strings.ToLower(bid.CollectionAddress), TokenID: bid.TokenId}, ChainName: chainName}
+				order, ok := itemsBestBids[key]
 				if !ok {
-					itemsBestBids[dao.MultiChainItemInfo{ItemInfo: types.ItemInfo{CollectionAddress: strings.ToLower(bid.CollectionAddress), TokenID: bid.TokenId}, ChainName: chainName}] = bid
+					itemsBestBids[key] = bid
 					continue
 				}
 				if bid.Price.GreaterThan(order.Price) {
-					itemsBestBids[dao.MultiChainItemInfo{ItemInfo: types.ItemInfo{CollectionAddress: strings.ToLower(bid.CollectionAddress), TokenID: bid.TokenId}, ChainName: chainName}] = bid
+					itemsBestBids[key] = bid
 				}
 			}
 		}(chain, items)
@@ -505,7 +528,7 @@ func GetMultiChainUserListings(ctx context.Context, svcCtx *svc.ServerCtx, chain
 		collectionInfos[strings.ToLower(collection.Address)] = collection
 	}
 
-	// 9. 查询用户Item挂单信息
+	// 9. 查询用户Item挂单信息 (注意: listing 应该是当前有效的)
 	listings, err := svcCtx.Dao.QueryMultiChainUserItemsExpireListInfo(ctx, userAddrs, itemInfos)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed on query item list info")
@@ -516,7 +539,7 @@ func GetMultiChainUserListings(ctx context.Context, svcCtx *svc.ServerCtx, chain
 		listingInfos[strings.ToLower(listing.CollectionAddress+listing.TokenId)] = listing
 	}
 
-	// 10. 查询挂单订单信息
+	// 10. 查询挂单详情 (Active Orders)
 	var itemPrice []dao.MultiChainItemPriceInfo
 	for _, item := range listingInfos {
 		if item.Listing {
@@ -658,7 +681,13 @@ type multiOrder struct {
 	chainName string
 }
 
-// GetMultiChainUserBids 获取用户在多条链上的出价信息
+// GetMultiChainUserBids 获取用户在多条链上的出价 (Bids) 信息
+// 功能:
+// 1. 查询用户的所有有效出价 (包括 Collection Offer 和 Item Offer)
+// 2. 针对同一 Collection 的出价进行聚合 (Group By Collection + Price + Attributes)
+// 3. 关联查询 Collection 基本信息 (Name, Image)
+// 4. 按过期时间降序排列
+//
 // 参数:
 // - ctx: 上下文
 // - svcCtx: 服务上下文
@@ -668,11 +697,8 @@ type multiOrder struct {
 // - contractAddrs: 合约地址列表
 // - page: 页码
 // - pageSize: 每页大小
-// 返回:
-// - *types.UserBidsResp: 用户出价信息响应
-// - error: 错误信息
 func GetMultiChainUserBids(ctx context.Context, svcCtx *svc.ServerCtx, chainID []int, chainNames []string, userAddrs []string, contractAddrs []string, page, pageSize int) (*types.UserBidsResp, error) {
-	// 1. 遍历每条链,查询用户出价信息
+	// 1. 遍历每条链,查询用户出价信息 (DB 查询)
 	var totalBids []multiOrder
 	for i, chain := range chainNames {
 		orders, err := svcCtx.Dao.QueryUserBids(ctx, chain, userAddrs, contractAddrs)
@@ -692,22 +718,24 @@ func GetMultiChainUserBids(ctx context.Context, svcCtx *svc.ServerCtx, chainID [
 		totalBids = append(totalBids, tmpBids...)
 	}
 
-	// 2. 构建出价信息映射和Collection地址映射
+	// 2. 构建出价信息映射和 Collection 地址映射 (Aggregation & Grouping)
 	bidsMap := make(map[string]types.UserBid)
-	bidCollections := make(map[string][]string)
+	bidCollections := make(map[string][]string) // Chain -> CollectionAddrs
 	for _, bid := range totalBids {
-		// 按链名称分组Collection地址
+		// 按链名称分组 Collection 地址, 用于批量查询 CollectionInfo
 		if collections, ok := bidCollections[bid.chainName]; ok {
 			bidCollections[bid.chainName] = append(collections, strings.ToLower(bid.CollectionAddress))
 		} else {
 			bidCollections[bid.chainName] = []string{strings.ToLower(bid.CollectionAddress)}
 		}
 
-		// 构建唯一key,用于合并相同Collection的出价信息
+		// 构建唯一 key, 用于合并/聚合相同条件的出价信息
+		// Key 组成: CollectionAddr + TokenId + Price + MarketplaceId + ExpireTime + OrderType
+		// 目的: 将多个仅仅是数量不同但其他条件相同的 Bid 聚合显示
 		key := strings.ToLower(bid.CollectionAddress) + bid.TokenId + bid.Price.String() + fmt.Sprintf("%d", bid.MarketplaceId) + fmt.Sprintf("%d", bid.ExpireTime) + fmt.Sprintf("%d", bid.OrderType)
 		userBid, ok := bidsMap[key]
 		if !ok {
-			// 如果key不存在,创建新的出价信息
+			// 如果 key 不存在, 创建新的出价聚合对象
 			bidsMap[key] = types.UserBid{
 				ChainID:           bid.chainID,
 				CollectionAddress: strings.ToLower(bid.CollectionAddress),
@@ -715,8 +743,10 @@ func GetMultiChainUserBids(ctx context.Context, svcCtx *svc.ServerCtx, chainID [
 				BidPrice:          bid.Price,
 				MarketplaceID:     bid.MarketplaceId,
 				ExpireTime:        bid.ExpireTime,
-				BidType:           getBidType(bid.OrderType),
-				OrderSize:         bid.QuantityRemaining,
+				//BidType:           getBidType(bid.OrderType), // BidType 似乎在 Struct 中被移除了或者重构了? (需确认 Types 定义)
+				// 临时 note: 保持原有逻辑
+				BidType:   getBidType(bid.OrderType),
+				OrderSize: bid.QuantityRemaining,
 				BidInfos: []types.BidInfo{
 					{
 						BidOrderID:    bid.OrderID,
@@ -732,7 +762,7 @@ func GetMultiChainUserBids(ctx context.Context, svcCtx *svc.ServerCtx, chainID [
 			continue
 		}
 
-		// 如果key存在,更新出价信息
+		// 如果 key 存在, 累加数量并追加详细 BidInfo
 		userBid.OrderSize += bid.QuantityRemaining
 		userBid.BidInfos = append(userBid.BidInfos, types.BidInfo{
 			BidOrderID:    bid.OrderID,
@@ -746,15 +776,18 @@ func GetMultiChainUserBids(ctx context.Context, svcCtx *svc.ServerCtx, chainID [
 		bidsMap[key] = userBid
 	}
 
-	// 3. 查询Collection基本信息
+	// 3. 并发查询 Collection 基本信息 (Name, Image)
 	collectionInfos := make(map[string]multi.Collection)
 	for chain, collections := range bidCollections {
-		cs, err := svcCtx.Dao.QueryCollectionsInfo(ctx, chain, removeRepeatedElement(collections))
+		// 去重 Collection 地址
+		uniqueCollections := removeRepeatedElement(collections)
+		cs, err := svcCtx.Dao.QueryCollectionsInfo(ctx, chain, uniqueCollections)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed on get collections info")
 		}
 
 		for _, c := range cs {
+			// Key 格式: "ChainID:CollectionAddr"
 			collectionInfos[fmt.Sprintf("%d:%s", c.ChainId, strings.ToLower(c.Address))] = c
 		}
 	}
@@ -762,7 +795,7 @@ func GetMultiChainUserBids(ctx context.Context, svcCtx *svc.ServerCtx, chainID [
 	// 4. 组装最终结果
 	var results []types.UserBid
 	for _, userBid := range bidsMap {
-		// 设置Collection名称和图片信息
+		// 填充 Collection 名称和图片
 		if c, ok := collectionInfos[fmt.Sprintf("%d:%s", userBid.ChainID, strings.ToLower(userBid.CollectionAddress))]; ok {
 			userBid.CollectionName = c.Name
 			userBid.ImageURI = c.ImageUri

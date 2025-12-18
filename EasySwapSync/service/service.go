@@ -112,3 +112,5 @@ func (s *Service) Start() error {
 	s.orderManager.Start()
 	return nil
 }
+
+通过 EasySwapSync 下执行 go run main.go daemon 代码  请列出这个同步项目 各个流程调用到的各个方法 并解释流程含义
