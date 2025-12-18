@@ -19,4 +19,7 @@ And set contract address in config file.
 ## Run
 Run command below
 ```shell
+go mod tidy
+
 go run main.go daemon
+```
