@@ -1,0 +1,28 @@
+sequenceDiagram
+    participant Taker as 吃单用户
+    participant OB as EasySwapOrderBook
+    participant Delegate as OrderBook (DelegateCall)
+    participant Vault as EasySwapVault
+    participant Maker as 挂单用户
+
+    Taker->>OB: matchOrders(matchDetails[])
+    loop 遍历每个撮合对
+        Note over OB,Delegate: 使用 delegatecall 隔离上下文
+        OB->>Delegate: matchOrderWithoutPayback()
+        Delegate->>Delegate: _matchOrder()
+        
+        Delegate->>Delegate: _isMatchAvailable (预检)
+        
+        alt Taker 吃买单 (Sell to Bid)
+            Delegate->>Vault: withdrawETH (从Vault提ETH)
+            Delegate->>Maker: 转账 ETH (扣除手续费)
+            Delegate->>Vault: withdrawNFT (将NFT转给 Taker)
+        else Taker 吃卖单 (Buy from List)
+            Delegate->>Vault: withdrawNFT (从Vault提NFT转给Taker)
+            Delegate->>Maker: 转账 ETH (来自Taker支付或Vault)
+        end
+        
+        Delegate->>Delegate: _updateFilledAmount (更新成交量)
+        Delegate-->>Taker: Emit LogMatch 事件
+    end
+    OB-->>Taker: 统一退还多余 ETH

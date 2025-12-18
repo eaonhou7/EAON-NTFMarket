@@ -1,0 +1,137 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --primary: #B8F703;  /* 主题主色 - 亮绿色 */
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+
+    --primary-foreground: #2C2E37;  /* 主题深色 */
+
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
+
+    --radius: 0.5rem;
+
+    /* 主题色系统 - 基于 #B8F703 和 #2C2E37 */
+    /* 主色 - 亮绿色系 */
+    --theme-primary: #B8F703;
+    --theme-primary-light: #C9FF1A;
+    --theme-primary-lighter: #DAFF33;
+    --theme-primary-dark: #A0D900;
+    --theme-primary-darker: #88C100;
+    --theme-primary-50: #F5FEE8;
+    --theme-primary-100: #E8FCC8;
+    --theme-primary-200: #D4F99D;
+    --theme-primary-300: #B8F703;
+    --theme-primary-400: #9CDE00;
+    --theme-primary-500: #7FB800;
+    --theme-primary-600: #639200;
+    --theme-primary-700: #4A6C00;
+    --theme-primary-800: #314600;
+    --theme-primary-900: #1A2400;
+
+    /* 深色系 */
+    --theme-dark: #2C2E37;
+    --theme-dark-light: #3A3D47;
+    --theme-dark-lighter: #484B57;
+    --theme-dark-dark: #1E2026;
+    --theme-dark-darker: #121419;
+    --theme-dark-50: #F5F5F6;
+    --theme-dark-100: #E5E6E8;
+    --theme-dark-200: #D0D1D5;
+    --theme-dark-300: #A8AAB2;
+    --theme-dark-400: #6E7078;
+    --theme-dark-500: #2C2E37;
+    --theme-dark-600: #25272E;
+    --theme-dark-700: #1E2026;
+    --theme-dark-800: #17181C;
+    --theme-dark-900: #0F1012;
+
+    /* 辅助色 */
+    --theme-accent: #B8F703;
+    --theme-accent-muted: #8FB802;
+  }
+
+  .dark {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 98%;
+    --primary: #B8F703;  /* 主题主色 - 亮绿色 */
+
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary-foreground: #2C2E37;  /* 主题深色 */
+
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+
+    /* 深色模式下的主题色（可以调整以适应深色背景） */
+    --theme-primary: #B8F703;
+    --theme-primary-light: #C9FF1A;
+    --theme-primary-lighter: #DAFF33;
+    --theme-primary-dark: #A0D900;
+    --theme-primary-darker: #88C100;
+
+    --theme-dark: #2C2E37;
+    --theme-dark-light: #3A3D47;
+    --theme-dark-lighter: #484B57;
+    --theme-dark-dark: #1E2026;
+    --theme-dark-darker: #121419;
+
+    --theme-accent: #B8F703;
+    --theme-accent-muted: #8FB802;
+  }
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+.glow-text {
+  text-shadow: 0 0 12px rgb(142,103,233,0.5),
+               0 0 24px rgb(142,103,233,0.3),
+               0 0 36px rgb(142,103,233,0.2);
+}

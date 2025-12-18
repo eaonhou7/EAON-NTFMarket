@@ -1,0 +1,19 @@
+sequenceDiagram
+    participant User as 用户
+    participant OB as EasySwapOrderBook
+    participant Vault as EasySwapVault
+
+    User->>OB: editOrders(editDetails[])
+    loop 遍历
+        OB->>OB: _editOrderTry()
+        OB->>OB: 校验 (除价格外其他参数必须一致)
+        
+        OB->>OB: _removeOrder (旧单) & _cancelOrder (旧单)
+        OB->>OB: _addOrder (新单)
+        
+        alt 卖单 (List)
+            OB->>Vault: editNFT (仅更新Vault内部记录)
+        else 买单 (Bid)
+            OB->>Vault: editETH (多退少补)
+        end
+    end

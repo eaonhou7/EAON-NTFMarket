@@ -1,0 +1,21 @@
+sequenceDiagram
+    participant User as 用户 (Maker)
+    participant OB as EasySwapOrderBook
+    participant Vault as EasySwapVault
+    participant Storage as OrderStorage (Internal)
+
+    User->>OB: 调用 makeOrders(orders[])
+    loop 遍历每个订单
+        OB->>OB: _makeOrderTry(order)
+        OB->>OB: 校验 (Maker身份, 价格>0, 未过期等)
+        
+        alt 卖单 (List)
+            OB->>Vault: depositNFT(将NFT转入Vault)
+        else 买单 (Bid)
+            OB->>Vault: depositETH(将ETH存入Vault)
+        end
+        
+        OB->>Storage: _addOrder(插入红黑树和队列)
+        OB-->>User: Emit LogMake 事件
+    end
+    OB-->>User: 退还多余的 msg.value (如有)

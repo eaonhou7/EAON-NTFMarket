@@ -1,0 +1,75 @@
+[
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "enum LibOrder.Side",
+            "name": "side",
+            "type": "uint8"
+          },
+          {
+            "internalType": "enum LibOrder.SaleKind",
+            "name": "saleKind",
+            "type": "uint8"
+          },
+          {
+            "internalType": "address",
+            "name": "maker",
+            "type": "address"
+          },
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "tokenId",
+                "type": "uint256"
+              },
+              {
+                "internalType": "address",
+                "name": "collection",
+                "type": "address"
+              },
+              {
+                "internalType": "uint96",
+                "name": "amount",
+                "type": "uint96"
+              }
+            ],
+            "internalType": "struct LibOrder.Asset",
+            "name": "nft",
+            "type": "tuple"
+          },
+          {
+            "internalType": "Price",
+            "name": "price",
+            "type": "uint128"
+          },
+          {
+            "internalType": "uint64",
+            "name": "expiry",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "salt",
+            "type": "uint64"
+          }
+        ],
+        "internalType": "struct LibOrder.Order",
+        "name": "order",
+        "type": "tuple"
+      }
+    ],
+    "name": "getOrderHash",
+    "outputs": [
+      {
+        "internalType": "OrderKey",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  }
+]

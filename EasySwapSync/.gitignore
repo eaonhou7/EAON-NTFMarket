@@ -1,0 +1,12 @@
+.DS_Store
+.idea
+build/
+/local
+logs/
+/src/logs
+.VSCodeCounter/
+.history/
+.vscode/
+src/pkg/chain/scan/*.png
+src/pkg/chain/scan/*.jpg
+config/config_import.toml

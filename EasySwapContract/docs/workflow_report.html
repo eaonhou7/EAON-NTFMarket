@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EasySwap Project Workflows</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 40px;
+            background-color: #fff;
+        }
+        h1 { border-bottom: 2px solid #eaeaea; padding-bottom: 10px; margin-bottom: 30px; }
+        h2 { margin-top: 40px; border-bottom: 1px solid #eaeaea; padding-bottom: 10px; }
+        h3 { margin-top: 30px; color: #444; }
+        p, li { font-size: 16px; }
+        code { background-color: #f6f8fa; padding: 2px 5px; border-radius: 3px; font-family: monospace; }
+        pre { background-color: #f6f8fa; padding: 15px; border-radius: 5px; overflow-x: auto; }
+        img { display: block; max-width: 100%; height: auto; margin: 20px 0; border: 1px solid #ddd; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 4px; }
+        .mermaid { display: none; }
+        blockquote { border-left: 4px solid #ddd; margin: 0; padding-left: 15px; color: #666; }
+        ul { padding-left: 20px; }
+    </style>
+</head>
+<body>
+
+<h1>EasySwap NFT 市场合约流程详解</h1>
+<p>本文档基于合约代码 (<code>EasySwapOrderBook.sol</code> 及相关合约)，详细解析了 NFT 挂单项目的核心业务流程。</p>
+
+<h2>1. 核心流程图解与解析</h2>
+
+<h3>1.1 挂单流程 (Make Order)</h3>
+<p><strong>功能</strong>: 用户发布 NFT 卖单 (List) 或 ETH 买单 (Bid)。<br>
+<strong>入口方法</strong>: <code>EasySwapOrderBook.makeOrders</code></p>
+<img src="images/make_order.png" alt="挂单流程">
+<p><strong>关键方法调用的含义</strong>:</p>
+<ul>
+    <li><code>makeOrders</code>: 批量入口，计算总需 ETH 金额，处理批量逻辑。</li>
+    <li><code>_makeOrderTry</code>: 单个订单的核心封装，包含“校验-存款-存储”三步曲。</li>
+    <li><code>depositNFT/ETH</code>: <strong>资金托管</strong>。为了保证交易安全，EasySwap 采用了<strong>托管模式</strong>。挂单时资产（NFT 或 ETH）会被锁定在 <code>EasySwapVault</code> 合约中，而非仅通过 <code>approve</code> 授权。</li>
+    <li><code>_addOrder</code>: <strong>链上存储</strong>。将订单插入红黑树 (<code>priceTrees</code>) 实现价格自动排序，并插入链表 (<code>orderQueues</code>) 实现同价订单的先入先出 (FIFO)。</li>
+</ul>
+
+<h3>1.2 取消订单流程 (Cancel Order)</h3>
+<p><strong>功能</strong>: 用户取消之前发布的未成交订单，并取回资产。<br>
+<strong>入口方法</strong>: <code>EasySwapOrderBook.cancelOrders</code></p>
+<img src="images/cancel_order.png" alt="取消订单流程">
+<p><strong>关键方法调用的含义</strong>:</p>
+<ul>
+    <li><code>_removeOrder</code>: <strong>数据清理</strong>。不仅从存储 mapping 中删除，还会维护红黑树和链表的结构完整性，释放存储空间 (Gas Refund)。</li>
+    <li><code>withdrawNFT/ETH</code>: <strong>资产赎回</strong>。确保用户取消订单时能即时拿回托管的资产。</li>
+    <li><code>_cancelOrder</code> (OrderValidator): <strong>状态终结</strong>。将 <code>filledAmount</code> 设为 <code>uint256.max</code>，永久防止该订单哈希被再次使用。</li>
+</ul>
+
+<h3>1.3 撮合/成交流程 (Match Order)</h3>
+<p><strong>功能</strong>: 用户 (Taker) 主动吃单，与链上的挂单 (Maker) 进行交易。<br>
+<strong>入口方法</strong>: <code>EasySwapOrderBook.matchOrders</code> (批量)</p>
+<img src="images/match_order.png" alt="撮合流程">
+<p><strong>关键方法调用的含义</strong>:</p>
+<ul>
+    <li><code>delegatecall</code>: <strong>故障隔离</strong>。批量撮合中，如果某笔交易失败（例如由于抢跑导致订单已成），<code>try/catch</code> 机制结合 <code>delegatecall</code> 可以只回滚该笔交易，而不影响其他成功的交易。</li>
+    <li><code>_isMatchAvailable</code>: <strong>撮合前置检查</strong>。确保买卖方向匹配、资产一致、同一个 Maker 不能左右互搏等。</li>
+    <li><code>_shareToAmount</code>: <strong>分润计算</strong>。计算协议手续费，剩余部分转给卖家。</li>
+</ul>
+
+<h3>1.4 编辑订单流程 (Edit Order)</h3>
+<p><strong>功能</strong>: 原子化地“取消旧单 + 挂新单”，通常用于快速改价。<br>
+<strong>入口方法</strong>: <code>EasySwapOrderBook.editOrders</code></p>
+<img src="images/edit_order.png" alt="编辑订单流程">
+<p><strong>关键方法调用的含义</strong>:</p>
+<ul>
+    <li><strong>原子性</strong>: 整个过程在同一笔交易完成，不存在资产提取后再充值的风险和 Gas 浪费。</li>
+    <li><code>editNFT</code>: 卖单改价时，NFT 实际上一直停留在 Vault 里，合约只需修改内部 mapping 记录 (Owner 从旧 Key 变更为新 Key)，效率极高。</li>
+    <li><code>editETH</code>: 买单改价时，智能计算差价：涨价时用户补钱，降价时合约退钱。</li>
+</ul>
+
+<h2>2. 需要注意的细节 (Attention / Caveats)</h2>
+<p>通过代码审计，发现以下值得注意的业务细节和潜在风险点：</p>
+<ol>
+    <li>
+        <strong>托管模式 (Custody Model)</strong>:<br>
+        <strong>细节</strong>: 本项目不是 OpenSea 那样的纯授权 (<code>approve</code>) 模式，而是<strong>托管模式</strong>。挂单即意味着资产转移到了 <code>EasySwapVault</code>。<br>
+        <strong>影响</strong>: 用户挂单后如果不取消，资产将一直锁定在合约中，无法在其他平台流通。这需要前端给用户清晰的操作提示。
+    </li>
+    <li>
+        <strong>红黑树与 Gas (Red-Black Tree)</strong>:<br>
+        <strong>细节</strong>: 使用了红黑树 (<code>RedBlackTreeLibrary</code>) 来维护价格排序。<br>
+        <strong>影响</strong>: 虽然查询效率高 (O(log n))，但<strong>写入和删除操作的 Gas 消耗相对较高</strong>，尤其是树节点旋转时。批量挂单或取消大量订单时，可能会遇到 Gas Limit 限制。
+    </li>
+    <li>
+        <strong>DelegateCall 的使用安全性</strong>:<br>
+        <strong>细节</strong>: <code>matchOrders</code> 使用 <code>delegatecall</code> 调用自身的 <code>matchOrderWithoutPayback</code>。<br>
+        <strong>影响</strong>: 这是为了实现“批量成交即使部分失败也不回滚整体”。代码中通过 <code>immutable self</code> 变量做了检查 (<code>onlyDelegateCall</code>)，防止外部直接恶意调用该内部函数，这是一个良好的安全实践。
+    </li>
+    <li>
+        <strong>买卖单的限制</strong>:<br>
+        <strong>细节</strong>: 代码中限制了卖单 (List) 的数量必须为 <code>1</code> (<code>order.nft.amount != 1</code> 则 revert)。<br>
+        <strong>影响</strong>: 这意味着目前仅支持 ERC721 风格的单品出售，不支持 ERC1155 的批量挂单 (例如挂 10 个相同的 Token)。
+    </li>
+    <li>
+        <strong>不可升级的库 (Libraries)</strong>:<br>
+        <strong>细节</strong>: 尽管主合约是 Upgradeable 的，但如果红黑树库 (<code>RedBlackTreeLibrary</code>) 的逻辑有 bug，由于它是内部链接的库代码 (internal linking) 还是外部部署 (external linking) 需要确认。如果是 internal，升级合约逻辑即可；如果是 external，可能涉及更多替换工作。
+    </li>
+    <li>
+        <strong>ETH 退款</strong>:<br>
+        <strong>细节</strong>: 很多函数 (<code>makeOrders</code>, <code>editOrders</code>, <code>matchOrders</code>) 结尾都有 <code>msg.value > cost</code> 的退款逻辑。<br>
+        <strong>影响</strong>: 前端在估算 Gas 时，发送的 ETH 可能需要略多于实际金额以防计算误差，依赖合约的自动退款功能。
+    </li>
+</ol>
+
+</body>
+</html>

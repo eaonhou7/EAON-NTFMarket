@@ -1,0 +1,32 @@
+[
+  {
+    "inputs": [],
+    "name": "CannotFindNextEmptyKey",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "CannotFindPrevEmptyKey",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "CannotInsertEmptyKey",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "CannotInsertExistingKey",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "CannotRemoveEmptyKey",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "CannotRemoveMissingKey",
+    "type": "error"
+  }
+]

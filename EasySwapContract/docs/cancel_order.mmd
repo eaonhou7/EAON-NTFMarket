@@ -1,0 +1,23 @@
+sequenceDiagram
+    participant User as 用户 (Maker)
+    participant OB as EasySwapOrderBook
+    participant Storage as OrderStorage (Internal)
+    participant Vault as EasySwapVault
+    participant Validator as OrderValidator (Internal)
+
+    User->>OB: 调用 cancelOrders(orderKeys[])
+    loop 遍历每个订单 Key
+        OB->>OB: _cancelOrderTry(orderKey)
+        OB->>OB: 校验 (Maker身份, 未完全成交)
+        
+        OB->>Storage: _removeOrder(从树/队列中移除数据)
+        
+        alt 卖单 (List)
+            OB->>Vault: withdrawNFT(退还NFT给用户)
+        else 买单 (Bid)
+            OB->>Vault: withdrawETH(退还剩余ETH给用户)
+        end
+        
+        OB->>Validator: _cancelOrder(标记状态为 CANCELLED)
+        OB-->>User: Emit LogCancel 事件
+    end
